@@ -1,0 +1,108 @@
+All code required is below
+
+import os
+import numpy as np
+import librosa
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.svm import SVC
+from sklearn.metrics import classification_report, confusion_matrix
+
+# Function to list unique labels in the dataset
+def list_unique_labels(directory):
+    labels = []
+    for file in os.listdir(directory):
+        if file.endswith(".wav"):
+            emotion = file.split('-')[2] # Assuming emotion is the third part of the filename after the first dash
+            labels.append(emotion)
+    unique_labels = set(labels)
+    print(f"Unique labels in the dataset for {directory}:", unique_labels)
+    return unique_labels
+
+# Function to load audio files and extract features
+def load_audio_files(directory):
+    audio_files = []
+    labels = []
+    print(f"Searching for files in: {directory}")
+    for file in os.listdir(directory):
+        print(f"Found file: {file}") # Debugging line to print each file found
+        if file.endswith(".wav"):
+            try:
+                audio, sr = librosa.load(os.path.join(directory, file))
+                audio_files.append(audio)
+                # Extracting the emotion from the filename
+                emotion = file.split('-')[2] # Assuming emotion is the third part of the filename after the first dash
+                labels.append(emotion)
+                print(f"Successfully loaded file: {file}")
+            except Exception as e:
+                print(f"Error loading file {file}: {e}")
+    if not audio_files:
+        print(f"No audio files were loaded from {directory}. Please check the directory path and file format.")
+    else:
+        print(f"Loaded {len(audio_files)} audio files from {directory}.")
+    return audio_files, labels
+
+# Function to extract features from audio files
+def extract_features(audio_files):
+    features = []
+    for audio in audio_files:
+        mfccs = librosa.feature.mfcc(y=audio, sr=22050, n_mfcc=13)
+        features.append(np.mean(mfccs.T, axis=0))
+    return np.array(features)
+
+# Function to check dataset class diversity
+def check_dataset_class_diversity(labels):
+    unique_labels = set(labels)
+    if len(unique_labels) <= 1:
+        print("Error: The dataset contains only one class. Please check the dataset.")
+        return False
+    print("Unique labels in the dataset:", unique_labels)
+    return True
+      
+    #'01': 'neutral','02': 'calm','03': 'happy',  '04': 'sad', '05': 'angry','06': 'fearful','07': 'disgust','08': 'surprised'
+
+def main():
+    for i in range(1, 25):
+        directory = rf'C:\Users\"write your file location"\Downloads\Ravdees\Actor_{i:02}' # Ensure correct path
+        audio_files, labels = load_audio_files(directory)
+        
+        # List unique labels in the dataset
+        unique_labels = list_unique_labels(directory)
+        if len(unique_labels) <= 1:
+            print("Error: The dataset contains only one class. Please check the dataset.")
+            continue
+        
+        # Extract features from audio files
+        features = extract_features(audio_files)
+
+        # Check dataset class diversity
+        if not check_dataset_class_diversity(labels):
+            continue
+
+        # Encode labels
+        le = LabelEncoder()
+        labels = le.fit_transform(labels)
+        
+        # Split data into training and testing sets
+        X_train, X_test, y_train, y_test = train_test_split(features, labels, test_size=0.2, random_state=42)
+
+        # Standardize features
+        scaler = StandardScaler()
+        X_train = scaler.fit_transform(X_train)
+        X_test = scaler.transform(X_test)
+
+        # Train model
+        model = SVC(kernel='linear', C=1) 
+        model.fit(X_train, y_train)
+
+        # Evaluate model
+        y_pred = model.predict(X_test)
+
+        print("Confusion Matrix:")
+        print(confusion_matrix(y_test, y_pred))
+
+        print("\nClassification Report:")
+        print(classification_report(y_test, y_pred))
+
+if _name_ == "_main_":
+    main()
